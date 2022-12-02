@@ -1,0 +1,177 @@
+---
+title: "What My Package Does"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{What My Package Does}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(MATH4753CODYPACK)
+```
+
+# Introduction
+
+This package was set up during class for Math 4753, Fall 2022. 1 data set was added along with 7 functions throughout the semester. For this project submission, I am required to include 4 of them and the data set. I chose to do mycltunif, myncurve, mycboot, and mymaxlikfun as the 4 functions to be used in this submission. Fire.csv is the data included with this package.
+
+## My Data
+```{r}
+data("fire")# Pulling Data from MATH4753CODYBLACK Package
+head(fire)
+```
+
+
+## First Function
+```{r}
+myncurve = function(mu, sigma,a){
+  curve(dnorm(x,mean=mu,sd=sigma), xlim = c(mu-3*sigma, mu + 3*sigma), ylab="Y-Values(dnorm)", xlab= "X-Values(dnorm)")
+
+  #Set-up X Boundaries for Polygon
+  xcurve=seq(mu-3*sigma,a,length=1000)
+
+  #Use to Map Y-axis
+  ycurve=dnorm(xcurve,mean=mu,sd=sigma)
+
+  #Fills in the shaded area
+  polygon(c(mu-3*sigma,xcurve,a),c(0,ycurve,0),col="Blue")
+
+  #Finds the P(Y<=a)
+  prob1=pnorm(a,mean=mu,sd=sigma)
+  prob1=round(prob1,4)
+  prob1
+
+  mtext(paste("Area = ", prob1, sep=""),font = 2,cex=.9, side=3)
+
+}
+```
+
+```{r}
+myncurve(5,10,6)#Function for making curves with shaded areas
+```
+
+
+
+## Second Function
+```{r}
+mycltunif=function(n,iter,a=0,b=10){
+  ## r-random sample from the uniform
+  y=runif(n*iter,a,b)
+  ## Place these numbers into a matrix
+  ## The columns will correspond to the iteration and the rows will equal the sample size n
+  data=matrix(y,nr=n,nc=iter,byrow=TRUE)
+  ## apply the function mean to the columns (2) of the matrix
+  ## these are placed in a vector w
+  w=apply(data,2,mean)
+  ## We will make a histogram of the values in w
+  ## How high should we make y axis?
+  ## All the values used to make a histogram are placed in param (nothing is plotted yet)
+  param=hist(w,plot=FALSE)
+  ## Since the histogram will be a density plot we will find the max density
+
+  ymax=max(param$density)
+  ## To be on the safe side we will add 10% more to this
+  ymax=1.2*ymax
+  ## Now we can make the histogram
+  hist(w,freq=FALSE,  ylim=c(0,ymax), main=paste("Histogram of sample mean",
+                                                 "\n", "sample size= ",n,sep=""),xlab="Sample mean")
+  ## add a density curve made from the sample distribution
+  lines(density(w),col="Blue",lwd=3) # add a density plot
+  ## Add a theoretical normal curve
+  curve(dnorm(x,mean=(a+b)/2,sd=(b-a)/(sqrt(12*n))),add=TRUE,col="Red",lty=2,lwd=3) # add a theoretical curve
+  ## Add the density from which the samples were taken
+  curve(dunif(x,a,b),add=TRUE,lwd=4)
+}
+```
+
+```{r}
+set.seed(50)
+mycltunif(10,10000,0,10)#Function for random sampling of uniform distribution, then uses CLT theory to plot means and check normality
+```
+
+
+## Third Function
+```{r}
+mycboot<-function(iter=10000,x,fun="mean",alpha=0.05,cx=1.5,...){  #Notice where the ... is repeated in the code
+  n=length(x)   #sample size
+
+  y=sample(x,n*iter,replace=TRUE)
+  rs.mat=matrix(y,nr=n,nc=iter,byrow=TRUE)
+  xstat=apply(rs.mat,2,fun) # xstat is a vector and will have iter values in it
+  ci=quantile(xstat,c(alpha/2,1-alpha/2))# Nice way to form a confidence interval
+  # A histogram follows
+  # The object para will contain the parameters used to make the histogram
+  para=hist(xstat,freq=FALSE,las=1,
+            main=paste("Histogram of Bootstrap sample statistics","\n","alpha=",alpha," iter=",iter,sep=""),
+            ...)
+
+  #mat will be a matrix that contains the data, this is done so that I can use apply()
+  mat=matrix(x,nr=length(x),nc=1,byrow=TRUE)
+
+  #pte is the point estimate
+  #This uses whatever fun is
+  pte=apply(mat,2,fun)
+  abline(v=pte,lwd=3,col="Black")# Vertical line
+  segments(ci[1],0,ci[2],0,lwd=4)      #Make the segment for the ci
+  text(ci[1],max(para$density)/4,paste("(",round(ci[1],2),sep=""),col="Red",cex=cx)
+  text(ci[2],max(para$density)/4,paste(round(ci[2],2),")",sep=""),col="Red",cex=cx)
+
+  # plot the point estimate 1/2 way up the density
+  text(pte,max(para$density)/2,round(pte,2),cex=cx)
+
+  invisible(list(ci=ci,fun=fun,x=x))# Some output to use if necessary
+}
+```
+
+```{r}
+mycboot(x=fire$DISTANCE)# Function for Using Bootstrap method. Utilizes package data=Fire
+```
+
+
+
+## Fourth Function
+```{r}
+mymaxlikfun=function(lfun,x,param,...){
+  # how many param values are there?
+  np=length(param)
+  # outer -- notice the order, x then param
+  # this produces a matrix -- try outer(1:4,5:10,function(x,y) paste(x,y,sep=" "))   to understand
+  z=outer(x,param,lfun)
+  # z is a matrix where each x,param is replaced with the function evaluated at those values
+  y=apply(z,2,sum)
+
+  # y is a vector made up of the column sums
+  # Each y is the log lik for a new parameter value
+  plot(param,y,col="Blue",type="l",lwd=2,...)
+  # which gives the index for the value of y == max.
+  # there could be a max between two values of the parameter, therefore 2 indices
+  # the first max will take the larger indice
+  i=max(which(y==max(y)))
+  abline(v=param[i],lwd=2,col="Red")
+
+  # plots a nice point where the max lik is
+  points(param[i],y[i],pch=19,cex=1.5,col="Black")
+  axis(3,param[i],round(param[i],2))
+  #check slopes. If it is a max the slope shoud change sign from + to
+  # We should get three + and two -vs
+  ifelse(i-3>=1 & i+2<=np, slope<-(y[(i-2):(i+2)]-y[(i-3):(i+1)])/(param[(i-2):(i+2)]-param[(i-3):(i+1)]),slope<-"NA")
+  return(list(i=i,parami=param[i],yi=y[i],slope=slope))
+}
+```
+
+```{r}
+logbin=function(x,param) log(dbinom(x,prob=param,size=15))#Creates the log of the likelihood function for binomial trials.
+mymaxlikfun(x=round(fire$DISTANCE,0),param=seq(0,1,length=1000),lfun=logbin,xlab=expression(pi),main="Binomial",cex.main=2)#Function utilizes the sub-function logbin to find the maximum likelihood estimator
+```
+
+
+
+
+
